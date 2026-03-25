@@ -1,5 +1,4 @@
 #include <M5CoreS3.h>
-#include <SPI.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <SPIFFS.h>
@@ -14,6 +13,8 @@
 
 #define DEVICE_ID "m5_01"
 #define TARGET_ID "m5_02"
+
+#define SAMPLE_RATE 16000
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -56,7 +57,7 @@ void drawUI() {
   M5.Display.fillScreen(BLACK);
   M5.Display.setTextSize(2);
   M5.Display.setTextDatum(top_center);
-  M5.Display.drawString("Voice Pager FIX", 160, 20);
+  M5.Display.drawString("Voice Pager", 160, 20);
 
   drawButton(btnRec);
   drawButton(btnPlay);
@@ -74,7 +75,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (rxFile) rxFile.write(payload, length);
   }
   else if (t.endsWith("/end")) {
-    if (rxFile) rxFile.close();
+    if (rxFile) {
+      rxFile.close();
+      M5.Display.println("Received!");
+    }
   }
 }
 
@@ -112,21 +116,22 @@ void sendFile() {
   while (file.available()) {
     int len = file.read(chunk, 512);
     client.publish((base + "/data").c_str(), chunk, len);
+
     client.loop();
-    delay(2);
+    delay(5);   // 🔥 ป้องกัน packet หลุด
   }
 
   client.publish((base + "/end").c_str(), "1");
   file.close();
+
+  M5.Display.println("Sent!");
 }
 
-// ===== PLAY (FIXED) =====
+// ===== PLAY =====
 void playAudio() {
-  M5.Speaker.stop();
-
   File file = SPIFFS.open("/recv.raw");
   if (!file) {
-    Serial.println("No audio file");
+    M5.Display.println("No file!");
     return;
   }
 
@@ -135,8 +140,7 @@ void playAudio() {
   while (file.available()) {
     int len = file.read(buf, 512);
 
-    // 🔊 RAW PCM PLAY (FIXED)
-    M5.Speaker.playRaw(buf, len, 16000);
+    M5.Speaker.playRaw(buf, len, SAMPLE_RATE);
     delay(1);
   }
 
@@ -150,11 +154,14 @@ void setup() {
 
   Serial.begin(115200);
 
-  SPIFFS.begin(true);
-
-  // 🔊 Speaker init FIX
+  M5.Mic.begin();
   M5.Speaker.begin();
-  M5.Speaker.setVolume(200);
+  M5.Speaker.setVolume(180);
+
+  if (!SPIFFS.begin(true)) {
+    M5.Display.println("SPIFFS FAIL");
+    while (1);
+  }
 
   // WIFI
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -178,7 +185,7 @@ void loop() {
 
   auto t = M5.Touch.getDetail();
 
-  // ===== REC START =====
+  // ===== START =====
   if (!isRecording && t.isPressed() && isInside(btnRec, t.x, t.y)) {
     SPIFFS.remove("/record.raw");
     recFile = SPIFFS.open("/record.raw", FILE_WRITE);
@@ -215,12 +222,7 @@ void loop() {
   }
 
   // ===== PLAY =====
-  static unsigned long lastPlay = 0;
-
   if (t.wasPressed() && isInside(btnPlay, t.x, t.y)) {
-    if (millis() - lastPlay < 500) return;
-    lastPlay = millis();
-
     drawButton(btnPlay, true);
 
     playAudio();
