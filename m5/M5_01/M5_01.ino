@@ -1,183 +1,244 @@
 #include <M5CoreS3.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <SPIFFS.h>
 
-// ===== WIFI =====
+// ================= WIFI =================
 #define WIFI_SSID "Atom 2.4G_plus_plus"
 #define WIFI_PASS "3512911674"
 
-// ===== MQTT =====
-#define MQTT_BROKER "broker.hivemq.com"
-#define MQTT_PORT 1883
+// ================= MQTT =================
+#define MQTT_BROKER "9291c430d3b1463385026d1c706457d8.s1.eu.hivemq.cloud"
+#define MQTT_PORT 8883
+#define MQTT_USER "testm5"
+#define MQTT_PASS "Wolf0492"
 
+// ================= DEVICE =================
 #define DEVICE_ID "m5_01"
-#define TARGET_ID "m5_02"
 
+// ================= AUDIO =================
 #define SAMPLE_RATE 16000
+#define FRAME_LEN 256
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClientSecure net;
+PubSubClient client(net);
 
-// ===== STATE =====
-bool isRecording = false;
-unsigned long recordStart = 0;
-
+// ================= STATE =================
 File recFile;
 File rxFile;
 
-// ===== UI =====
+bool isRecording = false;
+bool newMessage = false;
+String senderId = "";
+unsigned long lastTouch = 0;
+
+// ================= BUTTON =================
 struct Button {
-  int x, y, w, h;
+  int x,y,w,h;
   const char* label;
   uint16_t color;
 };
 
-Button btnRec  = {40, 160, 120, 70, "REC",  RED};
-Button btnPlay = {200, 160, 120, 70, "PLAY", BLUE};
+Button btnRec  = {40,160,120,70,"REC",RED};
+Button btnPlay = {200,160,120,70,"PLAY",BLUE};
 
-// ===== DRAW =====
-void drawButton(Button btn, bool pressed = false) {
-  uint16_t c = pressed ? DARKGREY : btn.color;
+bool hit(Button b,int x,int y){
+  return (x>b.x && x<b.x+b.w && y>b.y && y<b.y+b.h);
+}
 
-  M5.Display.fillRoundRect(btn.x, btn.y, btn.w, btn.h, 15, c);
-  M5.Display.drawRoundRect(btn.x, btn.y, btn.w, btn.h, 15, WHITE);
-
-  M5.Display.setTextColor(WHITE);
+void drawBtn(Button b){
+  M5.Display.fillRoundRect(b.x,b.y,b.w,b.h,15,b.color);
   M5.Display.setTextDatum(middle_center);
-  M5.Display.drawString(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
+  M5.Display.setTextColor(WHITE);
+  M5.Display.drawString(b.label,b.x+b.w/2,b.y+b.h/2);
 }
 
-bool isInside(Button btn, int tx, int ty) {
-  return (tx > btn.x && tx < btn.x + btn.w &&
-          ty > btn.y && ty < btn.y + btn.h);
-}
-
-void drawUI() {
-  M5.Display.fillScreen(BLACK);
-  M5.Display.setTextSize(2);
-  M5.Display.setTextDatum(top_center);
-  M5.Display.drawString("Voice Pager", 160, 20);
-
-  drawButton(btnRec);
-  drawButton(btnPlay);
-}
-
-// ===== MQTT =====
-void callback(char* topic, byte* payload, unsigned int length) {
-  String t = String(topic);
-
-  if (t.endsWith("/start")) {
-    SPIFFS.remove("/recv.raw");
-    rxFile = SPIFFS.open("/recv.raw", FILE_WRITE);
-  }
-  else if (t.endsWith("/data")) {
-    if (rxFile) rxFile.write(payload, length);
-  }
-  else if (t.endsWith("/end")) {
-    if (rxFile) {
-      rxFile.close();
-      M5.Display.println("Received!");
-    }
-  }
-}
-
+// ================= MQTT CONNECT =================
 void reconnect() {
   while (!client.connected()) {
-    Serial.print("MQTT connecting...");
 
-    if (client.connect(DEVICE_ID)) {
-      Serial.println("OK");
+    if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASS)) {
 
-      String base = "voice/" + String(DEVICE_ID);
-      client.subscribe((base + "/start").c_str());
-      client.subscribe((base + "/data").c_str());
-      client.subscribe((base + "/end").c_str());
+      client.subscribe("v/+/s");
+      client.subscribe("v/+/d");
+      client.subscribe("v/+/e");
 
     } else {
-      Serial.print("FAILED rc=");
-      Serial.println(client.state());
       delay(1000);
     }
   }
 }
 
-// ===== SEND =====
+// ================= AUDIO PROCESS =================
+void processAudio(int16_t* buffer) {
+
+  long sum = 0;
+  for (int i = 0; i < FRAME_LEN; i++) sum += buffer[i];
+  int offset = sum / FRAME_LEN;
+
+  int16_t prev = 0;
+
+  for (int i = 0; i < FRAME_LEN; i++) {
+
+    int v = buffer[i] - offset;
+
+    v = v - (int)(0.9 * prev);
+    prev = v;
+
+    v = v * 2.5;
+
+    if (abs(v) < 120) v = 0;
+
+    if (v > 30000) v = 30000;
+    if (v < -30000) v = -30000;
+
+    buffer[i] = v;
+  }
+}
+
+// ================= MQTT CALLBACK =================
+void callback(char* topic, byte* payload, unsigned int len) {
+
+  String msg = "";
+  for (int i = 0; i < len; i++) msg += (char)payload[i];
+
+  // ===== parse sender id =====
+  String sender = "";
+
+  int idIndex = msg.indexOf("\"id\":\"");
+  if (idIndex != -1) {
+    sender = msg.substring(idIndex + 6);
+    sender = sender.substring(0, sender.indexOf("\""));
+  }
+
+  // ❌ IGNORE SELF MESSAGE (IMPORTANT FIX)
+  if (sender == DEVICE_ID) return;
+
+  // ================= START =================
+  if (String(topic).endsWith("/s")) {
+
+    newMessage = true;
+    senderId = sender;
+
+    SPIFFS.remove("/recv.raw");
+    rxFile = SPIFFS.open("/recv.raw", FILE_WRITE);
+
+    M5.Speaker.tone(2000, 80);
+    delay(80);
+    M5.Speaker.tone(2600, 80);
+  }
+
+  // ================= DATA =================
+  else if (String(topic).endsWith("/d")) {
+    if (rxFile) rxFile.write(payload, len);
+  }
+
+  // ================= END =================
+  else if (String(topic).endsWith("/e")) {
+    if (rxFile) rxFile.close();
+
+    M5.Speaker.tone(3000, 120);
+  }
+}
+
+// ================= SEND =================
 void sendFile() {
+
   File file = SPIFFS.open("/record.raw");
   if (!file) return;
 
-  String base = "voice/" + String(TARGET_ID);
+  int16_t buffer[FRAME_LEN];
 
-  client.publish((base + "/start").c_str(), "1");
-
-  uint8_t chunk[512];
+  // 🔥 send START with JSON
+  String startMsg = "{\"id\":\"" + String(DEVICE_ID) + "\"}";
+  client.publish(("v/" + String(DEVICE_ID) + "/s").c_str(), startMsg.c_str());
 
   while (file.available()) {
-    int len = file.read(chunk, 512);
-    client.publish((base + "/data").c_str(), chunk, len);
+
+    file.read((uint8_t*)buffer, FRAME_LEN * 2);
+
+    client.publish(
+      ("v/" + String(DEVICE_ID) + "/d").c_str(),
+      (uint8_t*)buffer,
+      FRAME_LEN * 2,
+      false
+    );
 
     client.loop();
-    delay(5);   // 🔥 ป้องกัน packet หลุด
+    delay(6);
   }
 
-  client.publish((base + "/end").c_str(), "1");
-  file.close();
-
-  M5.Display.println("Sent!");
-}
-
-// ===== PLAY =====
-void playAudio() {
-  File file = SPIFFS.open("/recv.raw");
-  if (!file) {
-    M5.Display.println("No file!");
-    return;
-  }
-
-  uint8_t buf[512];
-
-  while (file.available()) {
-    int len = file.read(buf, 512);
-
-    M5.Speaker.playRaw(buf, len, SAMPLE_RATE);
-    delay(1);
-  }
+  client.publish(("v/" + String(DEVICE_ID) + "/e").c_str(), startMsg.c_str());
 
   file.close();
 }
 
-// ===== SETUP =====
+// ================= PLAY =================
+void playAudio(const char* path) {
+
+  File f = SPIFFS.open(path);
+  if (!f) return;
+
+  int16_t buf[FRAME_LEN];
+
+  while (f.available()) {
+    int len = f.read((uint8_t*)buf, sizeof(buf));
+    M5.Speaker.playRaw(buf, len / 2, SAMPLE_RATE);
+  }
+
+  f.close();
+}
+
+// ================= UI =================
+void drawNotification() {
+
+  if (!newMessage) return;
+
+  M5.Display.fillRect(0, 0, 320, 40, RED);
+  M5.Display.setTextColor(WHITE);
+  M5.Display.setTextDatum(middle_center);
+  M5.Display.drawString("NEW MESSAGE", 160, 10);
+  M5.Display.drawString(senderId, 160, 28);
+}
+
+// ================= SETUP =================
 void setup() {
+
   auto cfg = M5.config();
   M5.begin(cfg);
 
   Serial.begin(115200);
 
+  // MIC
+  auto mic_cfg = M5.Mic.config();
+  mic_cfg.sample_rate = SAMPLE_RATE;
+  M5.Mic.config(mic_cfg);
   M5.Mic.begin();
+
+  // SPEAKER
   M5.Speaker.begin();
-  M5.Speaker.setVolume(180);
+  M5.Speaker.setVolume(255);
 
-  if (!SPIFFS.begin(true)) {
-    M5.Display.println("SPIFFS FAIL");
-    while (1);
-  }
+  SPIFFS.begin(true);
 
-  // WIFI
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) delay(300);
 
-  Serial.println(WiFi.localIP());
+  net.setInsecure();
 
-  // MQTT
   client.setServer(MQTT_BROKER, MQTT_PORT);
   client.setCallback(callback);
+  client.setBufferSize(4096);
 
-  drawUI();
+  M5.Display.fillScreen(BLACK);
+  drawBtn(btnRec);
+  drawBtn(btnPlay);
 }
 
-// ===== LOOP =====
+// ================= LOOP =================
 void loop() {
+
   M5.update();
 
   if (!client.connected()) reconnect();
@@ -185,48 +246,46 @@ void loop() {
 
   auto t = M5.Touch.getDetail();
 
-  // ===== START =====
-  if (!isRecording && t.isPressed() && isInside(btnRec, t.x, t.y)) {
+  // ================= RECORD =================
+  if (!isRecording && t.isPressed() && hit(btnRec, t.x, t.y)) {
+
     SPIFFS.remove("/record.raw");
     recFile = SPIFFS.open("/record.raw", FILE_WRITE);
 
     isRecording = true;
-    recordStart = millis();
-
-    drawButton(btnRec, true);
+    lastTouch = millis();
   }
 
-  // ===== RECORD =====
   if (isRecording) {
-    int16_t buffer[256];
-    size_t len = M5.Mic.record(buffer, 256);
 
-    recFile.write((uint8_t*)buffer, len);
+    int16_t buffer[FRAME_LEN];
 
-    float sec = (millis() - recordStart) / 1000.0;
+    if (M5.Mic.record(buffer, FRAME_LEN)) {
+      processAudio(buffer);
+      recFile.write((uint8_t*)buffer, FRAME_LEN * 2);
+    }
 
-    M5.Display.fillRect(0, 80, 320, 40, BLACK);
-    M5.Display.setCursor(100, 90);
-    M5.Display.printf("REC: %.1fs", sec);
-
-    delay(1);
+    if (t.isPressed()) lastTouch = millis();
   }
 
-  // ===== STOP =====
-  if (isRecording && !t.isPressed()) {
+  // STOP + SEND
+  if (isRecording && millis() - lastTouch > 400) {
+
     recFile.close();
     isRecording = false;
 
     sendFile();
-    drawUI();
   }
 
-  // ===== PLAY =====
-  if (t.wasPressed() && isInside(btnPlay, t.x, t.y)) {
-    drawButton(btnPlay, true);
+  // ================= PLAY =================
+  if (t.wasPressed() && hit(btnPlay, t.x, t.y)) {
 
-    playAudio();
+    newMessage = false;
 
-    drawUI();
+    if (SPIFFS.exists("/recv.raw")) {
+      playAudio("/recv.raw");
+    }
   }
+
+  drawNotification();
 }
