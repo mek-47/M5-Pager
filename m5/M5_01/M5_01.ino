@@ -14,7 +14,9 @@
 #define DEVICE_ID "m5_01"
 #define TARGET_ID "m5_02"
 
-#define SAMPLE_RATE 16000
+// ===== AUDIO CONFIG =====
+#define SAMPLE_RATE    16000
+#define RECORD_SAMPLES 256   // samples per record() call (int16_t each)
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -171,6 +173,7 @@ void setup() {
 
   // MQTT
   client.setServer(MQTT_BROKER, MQTT_PORT);
+  client.setBufferSize(1024);   // default 256 is too small for 512-byte chunks
   client.setCallback(callback);
 
   drawUI();
@@ -187,6 +190,10 @@ void loop() {
 
   // ===== START =====
   if (!isRecording && t.isPressed() && isInside(btnRec, t.x, t.y)) {
+    // Switch I2S bus from speaker to mic
+    M5.Speaker.end();
+    M5.Mic.begin();
+
     SPIFFS.remove("/record.raw");
     recFile = SPIFFS.open("/record.raw", FILE_WRITE);
 
@@ -196,12 +203,14 @@ void loop() {
     drawButton(btnRec, true);
   }
 
-  // ===== RECORD =====
+  // ===== RECORDING =====
   if (isRecording) {
-    int16_t buffer[256];
-    size_t len = M5.Mic.record(buffer, 256);
+    int16_t buffer[RECORD_SAMPLES];
 
-    recFile.write((uint8_t*)buffer, len);
+    if (M5.Mic.record(buffer, RECORD_SAMPLES, SAMPLE_RATE)) {
+    // Pass SAMPLE_RATE explicitly (default is 8000)
+      recFile.write((uint8_t*)buffer, RECORD_SAMPLES * sizeof(int16_t)); // Write correct number of bytes: samples × 2 bytes each
+    }
 
     float sec = (millis() - recordStart) / 1000.0;
 
@@ -212,10 +221,15 @@ void loop() {
     delay(1);
   }
 
-  // ===== STOP =====
+  // ===== STOP RECORDING =====
   if (isRecording && !t.isPressed()) {
     recFile.close();
     isRecording = false;
+
+    // Switch I2S bus back from mic to speaker
+    M5.Mic.end();
+    M5.Speaker.begin();
+    M5.Speaker.setVolume(180);
 
     sendFile();
     drawUI();
