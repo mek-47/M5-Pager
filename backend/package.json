@@ -6,11 +6,16 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/client": "^7.6.0",
+    "dotenv": "^17.3.1",
     "elysia": "latest",
     "mqtt": "^5.15.1"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@types/node": "^25.5.0",
+    "bun-types": "latest",
+    "prisma": "^7.6.0"
   },
   "module": "src/index.js"
 }
