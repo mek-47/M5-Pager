@@ -2,25 +2,16 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <SPIFFS.h>
+#include <WiFiClientSecure.h>
 
-// ===== WIFI =====
-#define WIFI_SSID "Atom 2.4G_plus_plus"
-#define WIFI_PASS "3512911674"
-
-// ===== MQTT =====
-#define MQTT_BROKER "broker.hivemq.com"
-#define MQTT_PORT 1883
-
-#define DEVICE_ID "m5_02"
-#define TARGET_ID "m5_01"
+#include "env.h"
 
 // ===== AUDIO CONFIG =====
 #define SAMPLE_RATE    16000
-#define RECORD_SAMPLES 256   // samples per record() call (int16_t each)
+#define RECORD_SAMPLES 256   
 
-WiFiClient espClient;
+WiFiClientSecure espClient;
 PubSubClient client(espClient);
-
 // ===== STATE =====
 bool isRecording = false;
 unsigned long recordStart = 0;
@@ -145,7 +136,7 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("MQTT connecting...");
 
-    if (client.connect(DEVICE_ID)) {
+    if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASS)){
       Serial.println("OK");
 
       String base = "voice/" + String(DEVICE_ID);
@@ -259,11 +250,13 @@ void setup() {
   M5.Display.println("Connecting WiFi...");
   while (WiFi.status() != WL_CONNECTED) delay(300);
 
+  espClient.setInsecure();
+
   Serial.println(WiFi.localIP());
 
   // MQTT
   client.setServer(MQTT_BROKER, MQTT_PORT);
-  client.setBufferSize(1024);   // default 256 is too small for 512-byte chunks
+  client.setBufferSize(1024);
   client.setCallback(callback);
 
   drawUI();
