@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: m5_postgres
+    environment:
+      POSTGRES_USER: m5user
+      POSTGRES_PASSWORD: m5password
+      POSTGRES_DB: m5pager
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: m5_backend
+    ports:
+      - "3000:3000"
+    environment:
+      # Prisma expects DATABASE_URL
+      - DATABASE_URL=postgresql://m5user:m5password@db:5432/m5pager?schema=public
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: m5_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Prevents local node_modules from overwriting container's
+    restart: unless-stopped
+
+  cloud_worker:
+    build:
+      context: ./cloud_worker
+    container_name: m5_cloud_worker
+    environment:
+      - DATABASE_URL=postgresql://m5user:m5password@db:5432/m5pager
+      - PYTHONUNBUFFERED=1 # Ensures Python print logs appear instantly
+    depends_on:
+      - db
+    volumes:
+      - ./cloud_worker:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
