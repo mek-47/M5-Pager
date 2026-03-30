@@ -18,7 +18,7 @@ try:
 except KeyboardInterrupt:
     pass
 
-with wave.open("output.wav", "wb") as wf:
+with wave.open("output.wav", 'w') as wf:
     wf.setnchannels(1)
     wf.setsampwidth(2)
     wf.setframerate(8000)
