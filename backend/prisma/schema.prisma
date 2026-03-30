@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,4 +8,17 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model AudioRecord {
+  id          String   @id @default(uuid())
+  deviceId    String   @map("device_id")
+  filename    String
+  filePath    String   @map("file_path")
+  durationMs  Int?     @map("duration_ms")
+  sampleRate  Int      @default(16000) @map("sample_rate")
+  fileSize    Int      @map("file_size")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audio_records")
 }

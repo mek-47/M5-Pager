@@ -19,13 +19,20 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Prisma expects DATABASE_URL
       - DATABASE_URL=postgresql://m5user:m5password@db:5432/m5pager?schema=public
+      - MQTT_BROKER=bda50acbea674d6ab52f378c2e72b560.s1.eu.hivemq.cloud
+      - MQTT_TRANSPORT=mqtts
+      - MQTT_PORT=8883
+      - MQTT_WEBSOCKET_PORT=8884
+      - MQTT_USER=hivemq.webclient.1774882342885
+      - "MQTT_PASS=5AsV$$*UDt!271wnKaZ:i"
+      - CORS_ORIGIN=http://localhost:5173
     depends_on:
       - db
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - audio_files:/audio:ro
     restart: unless-stopped
 
   frontend:
@@ -38,7 +45,7 @@ services:
       - VITE_API_URL=http://localhost:3000
     volumes:
       - ./frontend:/app
-      - /app/node_modules # Prevents local node_modules from overwriting container's
+      - /app/node_modules
     restart: unless-stopped
 
   cloud_worker:
@@ -47,12 +54,19 @@ services:
     container_name: m5_cloud_worker
     environment:
       - DATABASE_URL=postgresql://m5user:m5password@db:5432/m5pager
-      - PYTHONUNBUFFERED=1 # Ensures Python print logs appear instantly
+      - MQTT_BROKER=bda50acbea674d6ab52f378c2e72b560.s1.eu.hivemq.cloud
+      - MQTT_PORT=8883
+      - MQTT_USER=hivemq.webclient.1774882342885
+      - "MQTT_PASS=5AsV$$*UDt!271wnKaZ:i"
+      - AUDIO_DIR=/audio
+      - PYTHONUNBUFFERED=1
     depends_on:
       - db
     volumes:
       - ./cloud_worker:/app
+      - audio_files:/audio
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  audio_files:
