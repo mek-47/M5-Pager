@@ -1,5 +1,2 @@
 paho-mqtt>=2.0.0
-# Add database or other dependencies you might need here:
-# psycopg2-binary
-requests
-google-cloud-storage
+psycopg2-binary
