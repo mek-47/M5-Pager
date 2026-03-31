@@ -16,6 +16,7 @@ services:
     build:
       context: ./backend
     container_name: m5_backend
+    command: sh -c "bunx prisma migrate deploy && bun run dev"
     ports:
       - "3000:3000"
     environment:
@@ -62,6 +63,11 @@ services:
       - MQTT_USER=hivemq.webclient.1774882342885
       - "MQTT_PASS=5AsV$$*UDt!271wnKaZ:i"
       - AUDIO_DIR=/audio
+      - PCM_SAMPLE_RATE=16000
+      - WAV_RATE_FACTOR=1.0
+      - PCM_CHANNELS=1
+      - PCM_SAMPLE_WIDTH=2
+      - PAD_TO_EXPECTED_BYTES=true
       - PYTHONUNBUFFERED=1
     depends_on:
       - db
