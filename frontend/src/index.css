@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500&family=Martian+Mono:wght@400&family=Manrope:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500&family=Martian+Mono:wght@400&family=Manrope:wght@400&family=Roboto:wght@500&display=swap');
 
 :root {
   --color-text-invert: #fbfaff;
@@ -9,10 +9,13 @@
   --color-surface-warning: #feeec2;
   --color-surface-contrast: #a3a3a0;
   --color-border-primary: #0c181d;
+  --color-border-contrast: #c0c0be;
+  --color-text-warning-mild: #795901;
 
   --font-heading: 'Chakra Petch', sans-serif;
-  --font-body: 'Manrope', sans-serif;
+  --font-body: 'Supreme Variable', 'Manrope', sans-serif;
   --font-code: 'Martian Mono', monospace;
+  --font-ui-title: 'Roboto', sans-serif;
 
   font-family: var(--font-body);
   font-synthesis: none;

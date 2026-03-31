@@ -35,11 +35,28 @@
 }
 
 .content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  row-gap: 110px;
+  column-gap: 0;
   width: 100%;
-  max-width: 1548px;
-  margin: 0 auto;
-  padding: 120px 262px;
+  padding: 120px;
   box-sizing: border-box;
+}
+
+.leftColumn,
+.rightColumn {
+  flex: 1 0 0;
+  min-width: 440px;
+  padding-inline: 80px;
+}
+
+.rightColumn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
 }
 
 .cards {
@@ -67,12 +84,19 @@
 .cardBody {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   width: 100%;
   padding: 16px;
   box-sizing: border-box;
+  overflow: hidden;
   background: var(--color-surface-minimal);
   box-shadow: -4px 4px 0 0 var(--color-border-primary);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 112px;
 }
 
 .cardBody.isWarning {
@@ -96,8 +120,22 @@
   background: var(--color-surface-contrast);
 }
 
+.audioPlayer {
+  display: block;
+  border: 0;
+}
+
+.emptyCardText {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .cardActions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   width: 100%;
 }
@@ -115,18 +153,187 @@
   cursor: pointer;
 }
 
+.deleteButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .deleteButton:focus-visible {
   outline: 2px solid var(--color-border-primary);
   outline-offset: 2px;
 }
 
+.statusCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 24px;
+  border: 1px solid var(--color-border-contrast);
+  background: var(--color-surface-primary);
+  box-shadow: -4px 4px 0 0 var(--color-border-primary);
+}
+
+.statusText {
+  flex: 1 0 0;
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.pumpContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 110px;
+  width: 100%;
+  padding: 120px 260px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pumpTop {
+  width: 100%;
+}
+
+.pumpCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.pumpBody {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--color-surface-minimal);
+  box-shadow: -4px 4px 0 0 var(--color-border-primary);
+}
+
+.pumpBodyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 24px;
+}
+
+.pumpReadings {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.32px;
+}
+
+.pumpReading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.pumpValue {
+  min-width: 64px;
+}
+
+.pumpSwitchButton {
+  border: 0;
+  border-radius: 16px;
+  background: var(--color-text-warning-mild);
+  color: var(--color-text-invert);
+  padding: 16px 24px;
+  font-family: var(--font-ui-title);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pumpSwitchButton:disabled {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+.pumpSwitchButton:focus-visible {
+  outline: 2px solid var(--color-border-primary);
+  outline-offset: 2px;
+}
+
+.pumpStatusCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 1px solid var(--color-surface-contrast);
+  background: var(--color-surface-primary);
+  box-shadow: -4px 4px 0 0 var(--color-border-primary);
+}
+
+.pumpStatusInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 24px;
+}
+
 @media (max-width: 1200px) {
   .content {
-    padding: 96px 80px;
+    padding: 80px;
+    row-gap: 64px;
+  }
+
+  .pumpContent {
+    padding: 80px;
+    gap: 64px;
+  }
+
+  .leftColumn,
+  .rightColumn {
+    padding-inline: 32px;
   }
 
   .cardTitle {
     font-size: 30px;
+  }
+}
+
+@media (max-width: 980px) {
+  .content {
+    padding: 56px 20px;
+    row-gap: 32px;
+  }
+
+  .pumpContent {
+    padding: 56px 20px;
+    gap: 32px;
+  }
+
+  .leftColumn,
+  .rightColumn {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 0;
   }
 }
 
@@ -140,10 +347,6 @@
     gap: 28px;
   }
 
-  .content {
-    padding: 48px 20px;
-  }
-
   .cards {
     gap: 24px;
   }
@@ -154,5 +357,22 @@
 
   .cardTitle {
     font-size: 24px;
+  }
+
+  .statusCard {
+    padding: 16px;
+  }
+
+  .pumpBodyRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pumpSwitchButton {
+    align-self: flex-end;
+  }
+
+  .pumpStatusInner {
+    padding: 16px;
   }
 }
