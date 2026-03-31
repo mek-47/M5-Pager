@@ -52,6 +52,19 @@ services:
       - dev
     restart: unless-stopped
 
+  frontend_prod:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_URL=http://localhost:3000
+    container_name: m5_frontend_prod
+    ports:
+      - "5173:4173"
+    profiles:
+      - prod
+    restart: unless-stopped
+
   cloud_worker:
     build:
       context: ./cloud_worker

@@ -1,16 +1,28 @@
-FROM oven/bun:latest 
+FROM oven/bun:latest AS build
 
 WORKDIR /app
 
 COPY package.json ./
 COPY bun.lock ./
-
-# Usually Vite projects use npm or yarn by default, adjust if you use bun here as well
 RUN bun install
 
 COPY . .
 
-EXPOSE 5173
+ARG VITE_API_URL=http://localhost:3000
+ENV VITE_API_URL=$VITE_API_URL
 
-# Expose to host so docker can map the port
-CMD ["bun", "run", "dev", "--", "--host", "0.0.0.0"]
+RUN bun run build
+
+FROM oven/bun:latest
+
+WORKDIR /app
+
+COPY package.json ./
+COPY bun.lock ./
+RUN bun install
+
+COPY --from=build /app/dist ./dist
+
+EXPOSE 4173
+
+CMD ["bun", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
