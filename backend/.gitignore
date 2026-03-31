@@ -43,4 +43,4 @@ package-lock.json
 
 # Environment variables
 .env
-/generated/prisma
+/src/generated/prisma
