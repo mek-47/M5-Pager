@@ -38,6 +38,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: m5_frontend
     ports:
       - "5173:5173"
@@ -46,6 +47,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    profiles:
+      - dev
     restart: unless-stopped
 
   cloud_worker:

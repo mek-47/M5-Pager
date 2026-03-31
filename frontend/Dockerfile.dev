@@ -1,15 +1,16 @@
-FROM node:20-alpine
+FROM oven/bun:latest 
 
 WORKDIR /app
 
 COPY package.json ./
+COPY bun.lock ./
 
 # Usually Vite projects use npm or yarn by default, adjust if you use bun here as well
-RUN npm install
+RUN bun install
 
 COPY . .
 
 EXPOSE 5173
 
 # Expose to host so docker can map the port
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["bun", "run", "dev", "--", "--host", "0.0.0.0"]
